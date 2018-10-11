@@ -135,6 +135,7 @@ void printAll(rule * r){ //prints nonterminals and terminals in order
     gen.insert(term.begin(), term.end());
 
     vector<rule*> newRules; //will be new list of rules
+    string startSym = r->non;
 
     bool changed = true;
 
@@ -188,42 +189,46 @@ void printAll(rule * r){ //prints nonterminals and terminals in order
     set<string> reach;
     vector<rule *> newRules2;
 
-    reach.insert(newRules.at(0)->non);
-    newRules2.push_back(newRules.at(0)); //start symbol is reachable
+    if(!newRules.empty() && newRules.at(0)->non.compare(startSym) == 0){ //make sure start symbol wasnt useless
+         reach.insert(newRules.at(0)->non);
+         newRules2.push_back(newRules.at(0)); //start symbol is reachable
 
-    bool changed2 = true;
-    while(changed2) {
-        changed2 = false;
-        //increment through all reachable rules
-        for(int pos = 0; pos < newRules.size(); pos++){
-            if(find(reach.begin(), reach.end(),newRules.at(pos)->non) != reach.end()){
-                //rule is reachable
-                RHS *rhsIt = newRules.at(pos)->rhs; //all nonterms in RHS are reachable
-                while (rhsIt != NULL && rhsIt->next != NULL) {
-                    if (find(non.begin(), non.end(), rhsIt->tok) != non.end() &&
-                        find(reach.begin(), reach.end(), rhsIt->tok) == reach.end()) {
-                        //token is a nonterminal and not already added
-                        reach.insert(rhsIt->tok);
-                        changed2 = true;
-                    }
-                    rhsIt = rhsIt->next;
-                }
-            }
-        }
-    }
+         bool changed2 = true;
+         while (changed2) {
+             changed2 = false;
+             //increment through all reachable rules
+             for (int pos = 0; pos < newRules.size(); pos++) {
+                 if (find(reach.begin(), reach.end(), newRules.at(pos)->non) != reach.end()) {
+                     //rule is reachable
+                     RHS *rhsIt = newRules.at(pos)->rhs; //all nonterms in RHS are reachable
+                     while (rhsIt != NULL && rhsIt->next != NULL) {
+                         if (find(non.begin(), non.end(), rhsIt->tok) != non.end() &&
+                             find(reach.begin(), reach.end(), rhsIt->tok) == reach.end()) {
+                             //token is a nonterminal and not already added
+                             reach.insert(rhsIt->tok);
+                             changed2 = true;
+                         }
+                         rhsIt = rhsIt->next;
+                     }
+                 }
+             }
+         }
 
-    //get rid of all rules with non-reachable symbols
-    for(int it3 = 1; it3 < newRules.size(); it3++){
-        if(find(reach.begin(), reach.end(), newRules.at(it3)->non) != reach.end())
-            //LHS is reachable
-            newRules2.push_back(newRules.at(it3));
-    }
+         //get rid of all rules with non-reachable symbols
+         for (int it3 = 1; it3 < newRules.size(); it3++) {
+             if (find(reach.begin(), reach.end(), newRules.at(it3)->non) != reach.end())
+                 //LHS is reachable
+                 newRules2.push_back(newRules.at(it3));
+         }
 
-    return newRules2;
 
+     }
+
+     return newRules2;
 }
 
 void printVec(vector<rule *> v){
+    if(!v.empty())
     for(int i = 0; i < v.size(); i++){
         cout << v.at(i)->non << " ->";
         RHS * rhsIt = v.at(i)->rhs;
