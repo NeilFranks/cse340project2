@@ -243,6 +243,109 @@ void printVec(vector<rule *> v){
     }
 }
 
+void printFirst(rule * head) {
+    //get nonterminals and terminals
+    pair<vector<string>, vector<string> > tokens = sortTokens(head);
+    vector<string> non = tokens.first;
+    vector<string> term = tokens.second;
+
+    vector<set<string> > firstSets = vector<set<string> >(
+            non.size() + term.size()); //string will be concatenated sequence of first terminals. Nons then terms
+    //fill all terms and epsilon sets with themselves
+    for (int i = non.size(); i < firstSets.size(); i++) {
+        firstSets.at(i).insert(term.at(i - non.size())); //mark all terminals' first sets with themselves
+    }
+
+    //fill up firstSets of nonterminals
+    //increment through all pruned rules repeatedly until FIRST sets dont change
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        rule *r = head;
+        while(r != NULL && r->next != NULL){
+
+            RHS *rhs = r->rhs;
+
+            //find lhs string in non, so you can adjust its first set
+            ptrdiff_t lPos = distance(non.begin(), find(non.begin(), non.end(), r->non));
+
+            set<string> startSet = firstSets.at(lPos); //save a copy of current state of set
+
+
+            if (rhs->tok.empty()) { //
+                firstSets.at(lPos).insert("#");
+            } else {
+                bool stop = false;
+                while (!stop && rhs != NULL && rhs->next != NULL) {
+                    //find rhs string in non, so you can adjust its first set
+                    ptrdiff_t rPos = distance(non.begin(), find(non.begin(), non.end(), rhs->tok));
+                    if(rPos == non.size())
+                        //find the rhs string in terms
+                        rPos = rPos + distance(term.begin(), find(term.begin(), term.end(), rhs->tok));
+
+                    if (find(firstSets.at(rPos).begin(), firstSets.at(rPos).end(), "#") !=
+                        firstSets.at(rPos).end()) { //if first set of RHS node contains epsilon
+
+                        //add everything from first set of RHS node except espilon
+                        set<string> temp = firstSets.at(rPos);
+                        temp.erase("#");
+                        firstSets.at(lPos).insert(temp.begin(), temp.end()); //first set of rhs to first set of lpos
+
+                        if (rhs->next->tok.empty()) //if there are no more tokens on RHS
+                            firstSets.at(lPos).insert("#"); //add in epsilon
+
+                    } else { //first set of RHS node doesnt contain epsilon
+                        firstSets.at(lPos).insert(firstSets.at(rPos).begin(),
+                                               firstSets.at(rPos).end()); //first set of rhs to first set of i
+
+                        stop = true;
+                    }
+
+                    rhs = rhs->next;
+                }
+            }
+
+            //check if set changed
+            if (startSet != firstSets.at(lPos))
+                changed = true;
+
+            r = r->next;
+        }
+    }
+
+
+    //print non terms in order
+    //only parse non-useless rules
+    for(int j = 0; j < non.size(); j++){
+        //find where in firstSets to look
+
+        cout << "FIRST(" << non.at(j) << ") = { ";
+
+        //print first first (every non has at least one
+        //find rule in list of rules
+        bool commas = false;
+        vector<string>::iterator termIt;
+        if(find(firstSets.at(j).begin(), firstSets.at(j).end(), "#") != firstSets.at(j).end()){ //epsilon is in first set of rule
+            cout << "#" ;
+            commas = true;
+        }
+
+
+        for(int i = 0; i < term.size(); i++) {
+
+            if(find(firstSets.at(j).begin(), firstSets.at(j).end(), term.at(i)) != firstSets.at(j).end()){ //terminal is in first set of rule
+                if(commas)
+                    cout << ", ";
+
+                cout << term.at(i);
+                commas = true;
+            }
+        }
+        cout<< " }\n";
+    }
+}
+
+
 int main (int argc, char* argv[])
 {
     int task;
@@ -310,7 +413,7 @@ int main (int argc, char* argv[])
             break;
 
         case 3:
-            // TODO: perform task 3.
+            printFirst(head);
             break;
 
         case 4:
