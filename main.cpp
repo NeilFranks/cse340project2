@@ -369,6 +369,7 @@ vector<set < string > > follow(rule * head){
     //fill start symbol with eof
     followSets.at(0).insert("$");
 
+
     //fill up followSets
     //increment through al rules repeatedly until FOLLOW sets dont change
     bool changed = true;
@@ -388,43 +389,57 @@ vector<set < string > > follow(rule * head){
             while (!stop && rhs != NULL && rhs->next != NULL) {
                 //find rhs string in non, so you can adjust its first set
                 ptrdiff_t rPos = distance(non.begin(), find(non.begin(), non.end(), rhs->tok));
+                if (rPos == non.size())
+                    rPos = non.size() + distance(term.begin(), find(term.begin(), term.end(), rhs->tok));
 
                 RHS * rhs2 = rhs->next;
 
-                if(rPos < non.size()) {
-                    if (!rhs->next->tok.empty()) { //rhs->next is a non term
+                bool stopped2 = false;
+                while( !stopped2 && !rhs2->tok.empty()) {
 
-                        //find next rhs string in non or term, so you can access its first set
-                        ptrdiff_t r2Pos = distance(non.begin(), find(non.begin(), non.end(), rhs->next->tok));
-                        if (r2Pos == non.size())
-                            r2Pos = non.size() + distance(term.begin(), find(term.begin(), term.end(), rhs->next->tok));
+                    //find rhs2 string in non, so you can adjust its first set
+                    ptrdiff_t r2Pos = distance(non.begin(), find(non.begin(), non.end(), rhs2->tok));
+                    if (r2Pos == non.size())
+                        r2Pos = non.size() + distance(term.begin(), find(term.begin(), term.end(), rhs2->tok));
 
-                        if (find(firstSets.at(r2Pos).begin(), firstSets.at(r2Pos).end(), "#") !=
-                            firstSets.at(r2Pos).end()) { //if first set of RHS2 node contains epsilon
+                    if (rPos < non.size()) { //rhs is a non
+
+                        if(find(firstSets.at(r2Pos).begin(), firstSets.at(r2Pos).end(), "#") !=
+                           firstSets.at(r2Pos).end()) { //if first set of RHS2 node contains epsilon)
 
                             //add everything from first set of RHS2 node except epsilon
                             set<string> temp = firstSets.at(r2Pos);
                             temp.erase("#");
                             followSets.at(rPos).insert(temp.begin(), temp.end()); //first set of rhs2 to follow set of rhs
 
-                            followSets.at(rPos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
-
-                        } else { //first set of RHS node doesnt contain epsilon
-                            followSets.at(rPos).insert(firstSets.at(r2Pos).begin(), firstSets.at(r2Pos).end()); //first set of rhs2 to first set of rhs
-                            if(rhs->next->next->tok.empty() && r2Pos<followSets.size()) //r->next is last token in RHS
-                                followSets.at(r2Pos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
-
-                            //stop = true;
+                            if(rhs2->next->tok.empty()){ //rhs2 is last token in rhs
+                                //whatever follows lhs tok must follow rhs node
+                                followSets.at(rPos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
+                            }
                         }
-                    } else { //rhs has no token after it
-                        //add follow of lhs to follow of rhs
-                        followSets.at(rPos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
+                        else{ //first set of RHS2 doesnt contain epsilon
+                            //add everything from first set of RHS2 node
+                            set<string> temp = firstSets.at(r2Pos);
+                            followSets.at(rPos).insert(temp.begin(), temp.end()); //first set of rhs2 to follow set of rhs
+                            stopped2 = true;
+                        }
 
-                        //add follow of rhs to follow of lhs
-                        //followSets.at(lPos).insert(followSets.at(rPos).begin(), followSets.at(rPos).end());
+                        if(rhs2->next->tok.empty() && r2Pos < non.size()){ //rhs2 is last token in rhs
+                            //whatever follows lhs tok must follow rhs node
+                            followSets.at(r2Pos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
+                        }
                     }
+
+                    if(rhs2->next->tok.empty())
+                        stopped2 = true;
+                    else
+                        rhs2 = rhs2->next;
                 }
 
+                if(rPos < non.size() && rhs->next->tok.empty()){ //rhs is last node in rhs
+                    //whatever follows lhs tok must follow rhs node
+                    followSets.at(rPos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
+                }
 
                 rhs = rhs->next;
             }
