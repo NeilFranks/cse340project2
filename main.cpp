@@ -494,6 +494,88 @@ void printFollow(rule * head){
     }
 }
 
+//return whether or not there is a predictive parser for grammer
+void pred(rule * head){
+    //get nonterminals and terminals
+    pair<vector<string>, vector<string> > tokens = sortTokens(head);
+    vector<string> non = tokens.first;
+    vector<string> term = tokens.second;
+
+    vector< set <string> > firstSets = first(head);
+
+    vector<rule*> pruned = prune(head);
+
+    //if any original rules are missing from pruned, some symbols were uselss, so there is no predictive parser
+    bool useless = false;
+
+    rule * r = head;
+    while(!useless && r != NULL && r->next != NULL){
+
+        if(find(pruned.begin(), pruned.end(), r) == pruned.end()){ //rule was useless
+            useless = true;
+        }
+
+        r = r->next;
+    }
+
+    if(useless)
+        cout << "NO";
+    else{
+        //for every rule, check if you have any other rule with the same LHS
+        bool sameRHS = false;
+        rule * r2 = head;
+        while(!sameRHS && r2 != NULL && r2->next != NULL) {
+
+            rule *r3 = r2->next;
+            while (!sameRHS && r3 != NULL && r3->next != NULL) {
+
+                //check if rules have same lhs tok and first rhs tok
+                if (r2->non.compare(r3->non) == 0) {
+                    if (r2->rhs->tok.compare(r3->rhs->tok) == 0)
+                        sameRHS = true;
+                    else { //if rhs has same FIRST sets, rule is still sameRHS
+
+                        //find r2->next string in non, so you can adjust its first set
+                        ptrdiff_t r2TokPos = distance(non.begin(), find(non.begin(), non.end(), r2->rhs->tok));
+                        if (r2TokPos == non.size())
+                            r2TokPos =
+                                    non.size() +
+                                    distance(term.begin(), find(term.begin(), term.end(), r2->rhs->tok));
+
+                        //find r3->next string in non, so you can adjust its first set
+                        ptrdiff_t r3TokPos = distance(non.begin(), find(non.begin(), non.end(), r3->rhs->tok));
+                        if (r3TokPos == non.size())
+                            r3TokPos =
+                                    non.size() +
+                                    distance(term.begin(), find(term.begin(), term.end(), r3->rhs->tok));
+
+                        if(r2TokPos < firstSets.size() && r3TokPos < firstSets.size()){ //neither rhs is just epsilon
+                            //find intersection of First sets
+                            set<string> intersect;
+                            set_intersection(firstSets.at(r2TokPos).begin(), firstSets.at(r2TokPos).end(),
+                                             firstSets.at(r3TokPos).begin(), firstSets.at(r3TokPos).end(),
+                                             inserter(intersect, intersect.begin()));
+
+                            if (intersect.size() > 0)
+                                sameRHS = true;
+                        }
+                    }
+                }
+
+                r3 = r3->next;
+            }
+
+            r2 = r2->next;
+        }
+
+        if(sameRHS)
+            cout << "NO";
+        else
+            cout << "YES";
+    }
+
+}
+
 int main (int argc, char* argv[])
 {
     int task;
@@ -569,7 +651,7 @@ int main (int argc, char* argv[])
             break;
 
         case 5:
-            // TODO: perform task 5.
+            pred(head);
             break;
 
         default:
