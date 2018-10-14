@@ -243,7 +243,7 @@ void printVec(vector<rule *> v){
     }
 }
 
-void printFirst(rule * head) {
+vector<set <string> > first(rule * head){
     //get nonterminals and terminals
     pair<vector<string>, vector<string> > tokens = sortTokens(head);
     vector<string> non = tokens.first;
@@ -257,7 +257,7 @@ void printFirst(rule * head) {
     }
 
     //fill up firstSets of nonterminals
-    //increment through all pruned rules repeatedly until FIRST sets dont change
+    //increment through all rules repeatedly until FIRST sets dont change
     bool changed = true;
     while (changed) {
         changed = false;
@@ -296,7 +296,7 @@ void printFirst(rule * head) {
 
                     } else { //first set of RHS node doesnt contain epsilon
                         firstSets.at(lPos).insert(firstSets.at(rPos).begin(),
-                                               firstSets.at(rPos).end()); //first set of rhs to first set of i
+                                                  firstSets.at(rPos).end()); //first set of rhs to first set of i
 
                         stop = true;
                     }
@@ -313,6 +313,16 @@ void printFirst(rule * head) {
         }
     }
 
+    return firstSets;
+}
+
+void printFirst(rule * head) {
+    //get nonterminals and terminals
+    pair<vector<string>, vector<string> > tokens = sortTokens(head);
+    vector<string> non = tokens.first;
+    vector<string> term = tokens.second;
+
+    vector< set <string> > firstSets = first(head);
 
     //print non terms in order
     //only parse non-useless rules
@@ -345,6 +355,129 @@ void printFirst(rule * head) {
     }
 }
 
+vector<set < string > > follow(rule * head){
+    //get nonterminals and terminals
+    pair<vector<string>, vector<string> > tokens = sortTokens(head);
+    vector<string> non = tokens.first;
+    vector<string> term = tokens.second;
+
+    //get first sets
+    vector< set <string> > firstSets = first(head);
+
+    vector<set<string> > followSets = vector<set<string> > (non.size());
+
+    //fill start symbol with eof
+    followSets.at(0).insert("$");
+
+    //fill up followSets
+    //increment through al rules repeatedly until FOLLOW sets dont change
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        rule *r = head;
+        vector< set<string> > startSets = followSets; //save a copy of current state of set
+
+        while (r != NULL && r->next != NULL) {
+
+            RHS *rhs = r->rhs;
+
+            //find lhs string in non, so you can adjust its follow set
+            ptrdiff_t lPos = distance(non.begin(), find(non.begin(), non.end(), r->non));
+
+            bool stop = false;
+            while (!stop && rhs != NULL && rhs->next != NULL) {
+                //find rhs string in non, so you can adjust its first set
+                ptrdiff_t rPos = distance(non.begin(), find(non.begin(), non.end(), rhs->tok));
+
+                RHS * rhs2 = rhs->next;
+
+                if(rPos < non.size()) {
+                    if (!rhs->next->tok.empty()) { //rhs->next is a non term
+
+                        //find next rhs string in non or term, so you can access its first set
+                        ptrdiff_t r2Pos = distance(non.begin(), find(non.begin(), non.end(), rhs->next->tok));
+                        if (r2Pos == non.size())
+                            r2Pos = non.size() + distance(term.begin(), find(term.begin(), term.end(), rhs->next->tok));
+
+                        if (find(firstSets.at(r2Pos).begin(), firstSets.at(r2Pos).end(), "#") !=
+                            firstSets.at(r2Pos).end()) { //if first set of RHS2 node contains epsilon
+
+                            //add everything from first set of RHS2 node except epsilon
+                            set<string> temp = firstSets.at(r2Pos);
+                            temp.erase("#");
+                            followSets.at(rPos).insert(temp.begin(), temp.end()); //first set of rhs2 to follow set of rhs
+
+                            followSets.at(rPos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
+
+                        } else { //first set of RHS node doesnt contain epsilon
+                            followSets.at(rPos).insert(firstSets.at(r2Pos).begin(), firstSets.at(r2Pos).end()); //first set of rhs2 to first set of rhs
+                            if(rhs->next->next->tok.empty() && r2Pos<followSets.size()) //r->next is last token in RHS
+                                followSets.at(r2Pos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
+
+                            //stop = true;
+                        }
+                    } else { //rhs has no token after it
+                        //add follow of lhs to follow of rhs
+                        followSets.at(rPos).insert(followSets.at(lPos).begin(), followSets.at(lPos).end());
+
+                        //add follow of rhs to follow of lhs
+                        //followSets.at(lPos).insert(followSets.at(rPos).begin(), followSets.at(rPos).end());
+                    }
+                }
+
+
+                rhs = rhs->next;
+            }
+
+            r = r->next;
+        }
+
+        //check if set changed
+        if (startSets != followSets)
+            changed = true;
+    }
+
+    return followSets;
+}
+
+void printFollow(rule * head){
+    //get nonterminals and terminals
+    pair<vector<string>, vector<string> > tokens = sortTokens(head);
+    vector<string> non = tokens.first;
+    vector<string> term = tokens.second;
+
+    vector< set <string> > followSets = follow(head);
+
+    //print non terms in order
+    //only parse non-useless rules
+    for(int j = 0; j < non.size(); j++){
+        //find where in firstSets to look
+
+        cout << "FOLLOW(" << non.at(j) << ") = { ";
+
+        //print first first (every non has at least one
+        //find rule in list of rules
+        bool commas = false;
+        vector<string>::iterator termIt;
+        if(find(followSets.at(j).begin(), followSets.at(j).end(), "$") != followSets.at(j).end()){ //epsilon is in first set of rule
+            cout << "$" ;
+            commas = true;
+        }
+
+
+        for(int i = 0; i < term.size(); i++) {
+
+            if(find(followSets.at(j).begin(), followSets.at(j).end(), term.at(i)) != followSets.at(j).end()){ //terminal is in first set of rule
+                if(commas)
+                    cout << ", ";
+
+                cout << term.at(i);
+                commas = true;
+            }
+        }
+        cout<< " }\n";
+    }
+}
 
 int main (int argc, char* argv[])
 {
@@ -417,7 +550,7 @@ int main (int argc, char* argv[])
             break;
 
         case 4:
-            // TODO: perform task 4.
+            printFollow(head);
             break;
 
         case 5:
